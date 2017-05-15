@@ -10,6 +10,8 @@ if (config.motion.enabled == true && require.resolve('johnny-five').length > 0 &
 	// Configure johnny-five
 	var five = require('johnny-five');
 	var Raspi = require("raspi-io");
+	var Relay2Switch = require("./relay2switch.js");
+
 	var board = new five.Board({
 		io: new Raspi()
 	});
@@ -17,7 +19,11 @@ if (config.motion.enabled == true && require.resolve('johnny-five').length > 0 &
 	board.on("ready",function() {
 		
 		var motion = new five.Motion(config.motion.pin);
-			
+		var relay = new five.Relay("GPIO17");
+		this.repl.inject({relay:relay});
+		var relay2switch = new Relay2Switch(relay, true);
+		var timerHandle = null;
+
 			// "calibrated" occurs once, at the beginning of a session,
 		motion.on("calibrated", function() {
 			console.log("!c:","calibrated");
@@ -33,6 +39,26 @@ if (config.motion.enabled == true && require.resolve('johnny-five').length > 0 &
 			// when no movement has occurred in X ms
 		motion.on("motionend", function() {
 			console.log("!e:","motionend");
+			if( relay2switch.isLCDOn() ){
+				console.log("LCD is currently on...");
+				//relay2switch.switchOff();
+			}else{
+				console.log("LCD is currently off, switching on...");
+				relay2switch.switchOn();
+			}
+			
+			//cancel timer if already running
+			if (timerHandle != null){
+				clearTimeout(timerHandle);
+				timerHandle = null;
+				console.log("Old timer cancelled!");
+			}
+			//now start a new timer when new motion detected
+			console.log("Start new timer...");
+			timerHandle = setTimeout(function(){
+				console.log("switching off upon timer");
+				relay2switch.switchOff();			
+			}, 10000);
 		});
 	});
 } else if ( config.motion.enabled == true){
